@@ -1,0 +1,10 @@
+New in 2.0.0
+- Upgraded ffmpeg version to 8.1.2, using the new ffmpeg-kit-next library
+
+New in 1.3.3
+- Crash fixes
+- Added opus file extension output option
+
+New in 1.3.2
+- Added audio codec option to settings
+- Added "copy" and "default" to video and audio codec options
