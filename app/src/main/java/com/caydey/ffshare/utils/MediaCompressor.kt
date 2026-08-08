@@ -84,7 +84,7 @@ class MediaCompressor(private val context: Context) {
         val outputFileUri = FileProvider.getUriForFile(context, context.applicationContext.packageName+".fileprovider", outputFile)
 
         // need to create new saf param as they are one-use
-        val mediaInformation = FFprobeKit.getMediaInformation(FFmpegKitConfig.getSafParameterForRead(context, inputFileUri)).mediaInformation
+        val mediaInformation = FFprobeKit.getMediaInformation(FFmpegKitConfig.getSafParameterForRead(context, inputFileUri)).getMediaInformation()
 
         if (mediaInformation == null) {
             Timber.d("Unable to get media information, throwing error")
@@ -93,18 +93,18 @@ class MediaCompressor(private val context: Context) {
             return
         }
 
-        val inputFileSize = mediaInformation.size.toLong() // get input file size
+        val inputFileSize = mediaInformation.getSize()?.toLong() ?: 0 // get input file size
 
         var duration = 0 // default duration for image
         if (showProgress) {
             // invalid video file if ffprobe cant parse duration and size
-            if (mediaInformation.duration == null || mediaInformation.size == null) {
+            if (mediaInformation.getDuration() == null || mediaInformation.getSize() == null) {
                 Timber.d("Unable to get size & duration for media, throwing error")
                 Toast.makeText(context, context.getString(R.string.error_invalid_file), Toast.LENGTH_LONG).show()
                 failureHandler()
                 return
             }
-            duration = (mediaInformation.duration.toFloat() * 1_000).toInt()
+            duration = ((mediaInformation.getDuration()?.toFloat() ?: 0f) * 1_000).toInt()
         }
 
         val params = ffmpegParamMaker.create(inputFileUri, mediaInformation, mediaType, outputMediaType)
@@ -128,8 +128,8 @@ class MediaCompressor(private val context: Context) {
         Timber.d("Executing ffmpeg command: 'ffmpeg %s'", command)
         FFmpegKit.executeAsync(command, { session ->
             // completed
-            if (!session.returnCode.isValueSuccess) { // failed
-                if (!session.returnCode.isValueCancel) { // failure was not caused by a cancel
+            if (session.getReturnCode()?.isValueSuccess() == false) { // failed
+                if (session.getReturnCode()?.isValueCancel() == false) { // failure was not caused by a cancel
                     Timber.d("ffmpeg command failed")
                     Handler(Looper.getMainLooper()).post {
                         Toast.makeText(context, context.getString(R.string.ffmpeg_error), Toast.LENGTH_LONG).show()
@@ -141,7 +141,7 @@ class MediaCompressor(private val context: Context) {
                         inputFileName,
                         outputFile.name,
                         false,
-                        session.output,
+                        session.getOutput(),
                         inputFileSize,
                         -1
                     ))
@@ -169,7 +169,7 @@ class MediaCompressor(private val context: Context) {
                     inputFileName,
                     outputFile.name,
                     true,
-                    session.output,
+                    session.getOutput(),
                     inputFileSize,
                     outputFileCurrentSize
                 ))

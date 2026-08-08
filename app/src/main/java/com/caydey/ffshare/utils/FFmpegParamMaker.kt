@@ -68,8 +68,8 @@ class FFmpegParamMaker(val settings: Settings, val utils: Utils) {
 
             // H.26x requires dimensions to be divisible by 2, video scaling will account for this if applied
             if (!videoScaleApplied) {
-                val stream = mediaInformation.streams[0]
-                if (stream?.width?.rem(2) != 0L || stream.height?.rem(2) != 0L) {
+                val stream = mediaInformation.getStreams()[0]
+                if (stream.getWidth()?.rem(2) != 0L || stream.getHeight()?.rem(2) != 0L) {
                     videoFormatParams.add("crop=trunc(iw/2)*2:trunc(ih/2)*2")
                     // could also use "pad=ceil(iw/2)*2:ceil(ih/2)*2" to add column/row of black pixels
                 }
@@ -81,7 +81,7 @@ class FFmpegParamMaker(val settings: Settings, val utils: Utils) {
                 if (outputMediaType != Utils.MediaType.WEBM) {
                     // Calculate maximum bitrate in kbps.
                     // Ceil duration to ensure the maximum is strict. toInt to floor result, ffmpeg takes ints.
-                    val maxBitrate = (settings.videoMaxFileSize * 8 / ceil(mediaInformation.duration.toFloat())).toInt()
+                    val maxBitrate = (settings.videoMaxFileSize * 8 / ceil(mediaInformation.getDuration()?.toFloat() ?: 0f)).toInt()
                     Timber.d("Maximum bitrate for targeted filesize (%dK): %dk", settings.videoMaxFileSize, maxBitrate)
 
                     // audio can have at most one third of the total bitrate
@@ -119,11 +119,11 @@ class FFmpegParamMaker(val settings: Settings, val utils: Utils) {
     private fun getMediaCodecs(mediaInformation: MediaInformation): Pair<Settings.VideoCodecOpts?, Settings.AudioCodecOpts?> {
         var audioCodec: Settings.AudioCodecOpts? = null
         var videoCodec: Settings.VideoCodecOpts? = null
-        for (stream in mediaInformation.streams) {
-            if (stream.type.lowercase() == "video") {
-                videoCodec = Settings.VideoCodecOpts.parseCodec(stream.codec);
-            } else if (stream.type.lowercase() == "audio") {
-                audioCodec = Settings.AudioCodecOpts.parseCodec((stream.codec))
+        for (stream in mediaInformation.getStreams()) {
+            if (stream.getType()?.lowercase() == "video") {
+                videoCodec = Settings.VideoCodecOpts.parseCodec(stream.getCodec());
+            } else if (stream.getType()?.lowercase() == "audio") {
+                audioCodec = Settings.AudioCodecOpts.parseCodec((stream.getCodec()))
             }
         }
         return Pair(videoCodec, audioCodec)

@@ -227,17 +227,7 @@ class Utils(private val context: Context) {
     }
     fun isSupportedMediaType(type: MediaType): Boolean {
         // obviously unsupported if MediaType isn't even known
-        if (type == MediaType.UNKNOWN) return false
-
-        // support if in "full" flavor
-        if (BuildConfig.FLAVOR == "full") {
-            return true
-        }
-        // video/image only flavor
-        if (!isAudio(type)) { // if not audio then its supported
-            return true
-        }
-        return false
+        return type != MediaType.UNKNOWN
     }
     fun isImage(type: MediaType): Boolean {
         return type == MediaType.JPEG || type == MediaType.PNG || type == MediaType.GIF
@@ -253,9 +243,7 @@ class Utils(private val context: Context) {
     }
 
     fun getAllowedMimes(): Array<String> {
-        if (BuildConfig.FLAVOR === "full")
-            return arrayOf("audio/*","image/*", "video/*")
-        return arrayOf("image/*", "video/*")
+        return arrayOf("audio/*", "image/*", "video/*")
     }
 
 }

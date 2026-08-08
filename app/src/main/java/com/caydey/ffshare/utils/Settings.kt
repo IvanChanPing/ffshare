@@ -20,7 +20,7 @@ class Settings(private val context: Context) {
         VP9("libvpx-vp9"),
         MPEG4("mpeg4");
         companion object {
-            fun parseCodec(codec: String): VideoCodecOpts {
+            fun parseCodec(codec: String?): VideoCodecOpts {
                 return when (codec) {
                     "h264" -> H264
                     "hevc" -> H265
@@ -40,7 +40,7 @@ class Settings(private val context: Context) {
         OPUS("libopus"),
         FLAC("flac");
         companion object {
-            fun parseCodec(codec: String): AudioCodecOpts {
+            fun parseCodec(codec: String?): AudioCodecOpts {
                 return when (codec) {
                     "aac" -> AAC
                     "ac3" -> AC3
