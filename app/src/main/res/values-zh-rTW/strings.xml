@@ -31,7 +31,7 @@
     </string>
     <string name="introduction_line_1">功能（和程式碼）靈感來自 juanitobananas 的 Scrambled-Exif <a href="https://gitlab.com/juanitobananas/scrambled-exif">gitlab</a>
     </string>
-    <string name="introduction_line_2">使用的 FFmpeg 函式庫是 arthenica 的 ffmpeg-kit <a href="https://github.com/arthenica/ffmpeg-kit">github</a>
+    <string name="introduction_line_2">使用的 FFmpeg 函式庫是 arthenica 的 ffmpeg-kit-next <a href="https://github.com/arthenica/ffmpeg-kit-next">github</a>
     </string>
 
     <string name="select_file_button" tools:ignore="MissingTranslation">選擇檔案</string>

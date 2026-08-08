@@ -22,7 +22,11 @@ An android app to compress image, video and audio files through ffmpeg before sh
       <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" width="270">
 </p>
 
+## Building
+
+- Create ffmpeg-kit binaries by running `./build_ffmpegkit.sh`
+
 ## Used Libraries
 
-- [FFmpegKit](https://github.com/arthenica/ffmpeg-kit)
+- [FFmpegKitNext](https://github.com/arthenica/ffmpeg-kit-next)
 - [Timber](https://github.com/JakeWharton/timber)
