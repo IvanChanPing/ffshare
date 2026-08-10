@@ -1,27 +1,29 @@
 #!/bin/sh
 
+OUTPUT="$(dirname "$0")/app/libs"
+if [ -n "$1" ]; then
+  OUTPUT="$1"
+fi
+
 FFMPEG_KIT_TAG_VERSION=v8.1.1
-FFMPEG_KIT_DIRECTORY=ffmpeg-kit-next
 
-rm -rf "./$FFMPEG_KIT_DIRECTORY"
+rm -rf "./ffmpeg-kit-next"
 
-git clone --branch $FFMPEG_KIT_TAG_VERSION --depth=1 "https://github.com/arthenica/ffmpeg-kit-next" "$FFMPEG_KIT_DIRECTORY"
-
-cd "$FFMPEG_KIT_DIRECTORY"
+git clone --branch $FFMPEG_KIT_TAG_VERSION --depth=1 "https://github.com/arthenica/ffmpeg-kit-next"
 
 
 # future
 # --enable-libaom
-# --enable-libjxl
 
+cd ffmpeg-kit-next
 ./nix-android.sh -p android-r27d \
+  --jobs=$(nproc) \
   --disable-x86 --disable-x86-64 --disable-arm-v7a-neon \
   --enable-dav1d \
   --enable-fontconfig \
   --enable-freetype \
   --enable-fribidi \
   --enable-gmp \
-  --enable-gnutls \
   --enable-kvazaar \
   --enable-lame \
   --enable-libass \
@@ -46,5 +48,8 @@ cd "$FFMPEG_KIT_DIRECTORY"
   --enable-libvidstab \
   --enable-x264 \
   --enable-x265 \
-  --enable-xvidcore
+  --enable-xvidcore \
+  --enable-libjxl
+cd ..
 
+mv ffmpeg-kit-next/prebuilt/bundle-android-aar-24-maven/com/arthenica/ffmpeg-kit-next/8.1.1/ffmpeg-kit-next-8.1.1.aar "$OUTPUT"
