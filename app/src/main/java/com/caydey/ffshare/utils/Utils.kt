@@ -82,6 +82,31 @@ class Utils(private val context: Context) {
         return filename
     }
 
+    /**
+     * Purpose: maps an output filename extension to FFShare's existing media type enum.
+     * Invocation: automatic replacement compression supplies the original filename.
+     * Contract: returns UNKNOWN for an unmapped extension; callers must fall back safely.
+     * Verification: source-level readback only; Android runtime is UNVERIFIED this turn.
+     */
+    fun getMediaTypeFromFilename(filename: String): MediaType {
+        return when (filename.substringAfterLast('.', "").lowercase()) {
+            "jpg", "jpeg" -> MediaType.JPEG
+            "png" -> MediaType.PNG
+            "gif" -> MediaType.GIF
+            "webp" -> MediaType.WEBP
+            "mp4", "mov" -> MediaType.MP4
+            "mkv" -> MediaType.MKV
+            "webm" -> MediaType.WEBM
+            "avi" -> MediaType.AVI
+            "mp3" -> MediaType.MP3
+            "ogg" -> MediaType.OGG
+            "aac" -> MediaType.AAC
+            "wav" -> MediaType.WAV
+            "opus" -> MediaType.OPUS
+            else -> MediaType.UNKNOWN
+        }
+    }
+
     val isReadPermissionGranted: Boolean
         get() {
             val check = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE)

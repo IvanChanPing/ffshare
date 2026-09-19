@@ -3,6 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:name=".App"
@@ -39,6 +43,10 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.caydey.ffshare.MainActivity" />
         </activity>
+        <!-- Automatic compression settings: non-exported screen reached from PreferencesFragment. -->
+        <activity
+            android:name=".autocompress.AutoCompressSettingsActivity"
+            android:exported="false" />
         <activity
             android:name=".HandleMediaActivity"
             android:excludeFromRecents="true"
@@ -72,6 +80,26 @@
             android:name=".CacheCleanUpReceiver"
             android:enabled="true"
             android:exported="false" />
+        <!-- MediaStore-triggered watcher; it queues WorkManager only when new media is found. -->
+        <service
+            android:name=".autocompress.MediaChangeJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true" />
+        <!-- WorkManager foreground execution on target API 34 uses the data-sync type. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+        <!-- Re-registers the non-persisted content-trigger job after reboot or app replacement. -->
+        <receiver
+            android:name=".autocompress.BootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
