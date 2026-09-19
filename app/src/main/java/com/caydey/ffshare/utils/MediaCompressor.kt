@@ -19,7 +19,10 @@ import com.arthenica.ffmpegkit.FFprobeKit
 import com.caydey.ffshare.R
 import com.caydey.ffshare.utils.logs.Log
 import com.caydey.ffshare.utils.logs.LogsDbHelper
+import kotlinx.coroutines.suspendCancellableCoroutine
 import timber.log.Timber
+import java.io.File
+import kotlin.coroutines.resume
 import java.util.*
 
 
@@ -33,6 +36,57 @@ class MediaCompressor(private val context: Context) {
     fun cancelAllOperations() {
         Timber.d("Canceling all ffmpeg operations")
         FFmpegKit.cancel()
+    }
+
+    /**
+     * Purpose: runs FFShare's existing settings, parameter builder, FFprobe, FFmpegKit, EXIF, and
+     * log pipeline without opening the manual share UI.
+     * Invocation: CompressionBridge calls this from AutoCompressWorker with a cache output file.
+     * Contract: outputMediaType follows originalName so the replacement keeps its exact extension;
+     * true requires FFmpeg success and a non-empty output. Cancellation cancels FFmpegKit work.
+     * Verification: source-level readback only; compilation and device execution are UNVERIFIED.
+     */
+    suspend fun compressToFile(inputFileUri: Uri, outputFile: File, originalName: String): Boolean {
+        val mediaType = utils.getMediaType(inputFileUri)
+        if (!utils.isSupportedMediaType(mediaType)) return false
+
+        val outputMediaType = utils.getMediaTypeFromFilename(originalName).let {
+            if (it == Utils.MediaType.UNKNOWN) mediaType else it
+        }
+        val outputFileUri = FileProvider.getUriForFile(
+            context,
+            context.applicationContext.packageName + ".fileprovider",
+            outputFile
+        )
+        val mediaInformation = FFprobeKit.getMediaInformation(
+            FFmpegKitConfig.getSafParameterForRead(context, inputFileUri)
+        ).getMediaInformation() ?: return false
+        val inputFileSize = mediaInformation.getSize()?.toLong() ?: 0L
+        val params = ffmpegParamMaker.create(inputFileUri, mediaInformation, mediaType, outputMediaType)
+        val inputSaf = FFmpegKitConfig.getSafParameterForRead(context, inputFileUri)
+        val outputSaf = FFmpegKitConfig.getSafParameterForWrite(context, outputFileUri)
+        val command = "-y -i $inputSaf $params $outputSaf"
+
+        return suspendCancellableCoroutine { continuation ->
+            FFmpegKit.executeAsync(command, { session ->
+                val succeeded = session.getReturnCode()?.isValueSuccess() == true
+                val outputSize = outputFile.length()
+                logsDbHelper.addLog(Log(
+                    command,
+                    originalName,
+                    outputFile.name,
+                    succeeded,
+                    session.getOutput(),
+                    inputFileSize,
+                    if (succeeded) outputSize else -1
+                ))
+                if (succeeded && settings.copyExifTags && ExifTools.isValidType(mediaType)) {
+                    ExifTools.copyExif(context.contentResolver.openInputStream(inputFileUri)!!, outputFile)
+                }
+                if (continuation.isActive) continuation.resume(succeeded && outputSize > 0L)
+            }, { }, { })
+            continuation.invokeOnCancellation { FFmpegKit.cancel() }
+        }
     }
 
     @SuppressLint("SetTextI18n")

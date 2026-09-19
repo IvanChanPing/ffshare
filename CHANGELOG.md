@@ -1,0 +1,9 @@
+# Changelog
+
+- Added FFShare automatic folder compression source integration; XML/static checks passed, Android compilation and device/UI execution remain unverified.
+
+## 2026-09-19 15:50 — FFShare automatic folder compression
+- Added source integration for automatic compression of newly added media in selected SAF folders.
+- Changed files: `app/build.gradle`, `app/src/main/AndroidManifest.xml`, `app/src/main/java/com/caydey/ffshare/PreferencesFragment.kt`, `app/src/main/java/com/caydey/ffshare/utils/MediaCompressor.kt`, `app/src/main/java/com/caydey/ffshare/utils/Utils.kt`, `app/src/main/res/values/strings.xml`, `app/src/main/res/xml/preferences.xml`, `app/src/main/java/com/caydey/ffshare/autocompress/AutoCompressPrefs.kt`, `app/src/main/java/com/caydey/ffshare/autocompress/AutoCompressScheduler.kt`, `app/src/main/java/com/caydey/ffshare/autocompress/AutoCompressSettingsActivity.kt`, `app/src/main/java/com/caydey/ffshare/autocompress/AutoCompressWorker.kt`, `app/src/main/java/com/caydey/ffshare/autocompress/BootReceiver.kt`, `app/src/main/java/com/caydey/ffshare/autocompress/CompressionBridge.kt`, `app/src/main/java/com/caydey/ffshare/autocompress/FolderScanner.kt`, `app/src/main/java/com/caydey/ffshare/autocompress/MediaCandidate.kt`, `app/src/main/java/com/caydey/ffshare/autocompress/MediaChangeJobService.kt`, `app/src/main/java/com/caydey/ffshare/autocompress/SeenDb.kt`, `docs/FFSHARE_AUTOCOMPRESS_INTEGRATION.md`, `docs/FFSHARE_AUTOCOMPRESS_TASK_JOURNAL.md`, and `CHANGELOG.md`.
+- Verified: XML parsing, static contract assertions, `git diff --check`, unfinished-hook scan, and trailing-whitespace scan passed before bookkeeping.
+- Unverified: Android compilation, APK build, Settings UI/device execution, folder picker grants, MediaStore wakeups, WorkManager runtime execution, FFmpegKit runtime compression, and same-folder replacement on a device were not run under the current gate.

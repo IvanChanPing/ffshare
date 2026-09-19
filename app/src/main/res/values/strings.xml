@@ -55,6 +55,8 @@
     <!-- Settings -->
     <string name="settings_save_logs">Enable logs</string>
     <string name="settings_save_logs_summary">Save all executed FFmpeg commands</string>
+    <string name="settings_automatic_compression" tools:ignore="MissingTranslation">Automatic compression</string>
+    <string name="settings_automatic_compression_summary" tools:ignore="MissingTranslation">Compress new media in selected folders using FFShare's normal settings</string>
 
     <string name="settings_compression_options_title">Compression options</string>
     <string name="settings_conversions_options_title">Conversion options</string>

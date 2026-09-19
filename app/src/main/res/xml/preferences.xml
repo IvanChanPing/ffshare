@@ -6,6 +6,11 @@
             android:defaultValue="false"
             android:title="@string/settings_save_logs"
             android:summary="@string/settings_save_logs_summary" />
+    <!-- Automatic compression: plain Settings row; tapping it opens the folder-picker screen. -->
+    <Preference
+        android:key="pref_automatic_compression"
+        android:title="@string/settings_automatic_compression"
+        android:summary="@string/settings_automatic_compression_summary" />
     <PreferenceCategory
         android:key="prefs_output"
         android:title="@string/settings_output_options_title">
