@@ -1,8 +1,12 @@
 # Changelog
 
+- 2026-09-20 15:05 Automated successful-master-push APK builds and GitHub Releases: `.github/workflows/android-build.yml` now triggers on pushes to `master` while retaining manual dispatch, grants `contents: write`, publishes only after successful prior build/upload steps and only for `refs/heads/master`, creates unique run/attempt release tags targeting the triggering SHA, and uploads APKs, `SHA256SUMS`, and `BUILD-INFO.txt`. Static verification only: YAML/contract assertions, embedded Bash syntax, `git diff --check`, exact diff review, and no DONT TOUCH markers passed; no Android/APK build, workflow dispatch, master push, merge, or release run was performed.
+
 - Added FFShare automatic folder compression source integration; XML/static checks passed, Android compilation and device/UI execution remain unverified.
 
 - 2026-09-20 13:23 Completed reference-first automatic folder compression source implementation with generation-safe queueing, backup-first replacement, and static-only verification; no Gradle/Android compile.
+
+- 2026-09-20 15:05 Automated successful-master-push APK builds and GitHub Releases after static verification only; no Android build.
 
 ## 2026-09-20 13:23 UTC — Reference-first automatic folder compression implementation
 - Completed the source implementation for reference-first automatic compression of new media in selected local shared-storage folders.

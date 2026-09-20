@@ -1,14 +1,17 @@
-# Purpose: Compile FFShare debug APKs with the repository's pinned FFmpegKitNext build.
-# Invocation: Manual only; run “Build Android APK” from the GitHub Actions page.
-# Contract: Java 21, Android API 34, Gradle wrapper, and FFmpegKitNext 8.1.1 for ARM.
-# Verification: The job validates the AAR, requires at least one APK, and publishes checksums.
+# Purpose: Compile FFShare debug APKs and publish every successful master build as a GitHub Release.
+# Invocation: Automatic on every push to master; manual dispatch remains available for validation only.
+# Contract: Java 21, Android API 34, Gradle wrapper, FFmpegKitNext 8.1.1 for ARM, and one immutable build release per successful push.
+# Verification: The job validates the AAR, requires at least one APK, publishes checksums, and creates the release only after every build step succeeds.
 name: Build Android APK
 
 on:
+  push:
+    branches:
+      - master
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-build-${{ github.ref }}
@@ -104,3 +107,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+
+      - name: Publish successful master build to Releases
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_tag="build-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          release_time="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          gh release create "$release_tag" \
+            "$RUNNER_TEMP/ffshare-apks/"* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "FFShare automatic build — $release_time" \
+            --notes "Automatic debug APK build for commit $GITHUB_SHA. Includes APK files, SHA-256 checksums, and build metadata." \
+            --latest
