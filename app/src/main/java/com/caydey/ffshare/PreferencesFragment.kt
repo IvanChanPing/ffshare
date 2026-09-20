@@ -3,12 +3,15 @@ package com.caydey.ffshare
 import android.content.Intent
 import android.os.Bundle
 import androidx.preference.*
+import com.caydey.ffshare.autocompress.AutoCompressSettingsActivity
 
 /**
  * Purpose: owns the Settings screen, including the visible Automatic compression entry.
  * Invocation: user opens Settings and taps “Automatic compression”.
  * Contract: the row launches the SAF-backed AutoCompressSettingsActivity; folder monitoring is
  * enabled or disabled by that screen, not by this fragment.
+ * Visual: the existing “Automatic compression” row in Settings opens the folder-monitor screen;
+ * this class does not alter the row's appearance.
  * Verification: XML/source wiring read back; real UI click path is UNVERIFIED this turn.
  */
 class PreferencesFragment : PreferenceFragmentCompat() {
@@ -17,7 +20,7 @@ class PreferencesFragment : PreferenceFragmentCompat() {
         dynamicallyShowCustomName()
         dynamicallyAddCustomParamTooltips()
         findPreference<Preference>("pref_automatic_compression")?.setOnPreferenceClickListener {
-            startActivity(Intent(requireContext(), autocompress.AutoCompressSettingsActivity::class.java))
+            startActivity(Intent(requireContext(), AutoCompressSettingsActivity::class.java))
             true
         }
     }
