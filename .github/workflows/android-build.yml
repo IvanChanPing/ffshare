@@ -1,0 +1,84 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Restore FFmpegKit AAR
+        id: ffmpegkit-cache
+        uses: actions/cache@v6
+        with:
+          path: app/libs/ffmpeg-kit-next-8.1.1.aar
+          key: ffmpeg-kit-next-8.1.1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('build_ffmpegkit.sh') }}
+
+      - name: Install Nix
+        if: steps.ffmpegkit-cache.outputs.cache-hit != 'true'
+        uses: DeterminateSystems/determinate-nix-action@v3
+
+      - name: Build FFmpegKit AAR
+        if: steps.ffmpegkit-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p app/libs
+          ./build_ffmpegkit.sh app/libs
+
+      - name: Verify FFmpegKit AAR
+        run: |
+          test -s app/libs/ffmpeg-kit-next-8.1.1.aar
+          unzip -tq app/libs/ffmpeg-kit-next-8.1.1.aar
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-34" "build-tools;36.0.0"
+
+      - name: Create temporary CI signing key
+        run: |
+          keytool -genkeypair -noprompt \
+            -keystore "$RUNNER_TEMP/ffshare-ci.jks" \
+            -storepass android \
+            -alias ffshare-ci \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 1 \
+            -dname "CN=FFShare CI"
+
+      - name: Build debug APKs
+        env:
+          ORG_GRADLE_PROJECT_FFSHARE_RELEASE_STORE_FILE: ${{ runner.temp }}/ffshare-ci.jks
+          ORG_GRADLE_PROJECT_FFSHARE_RELEASE_STORE_PASSWORD: android
+          ORG_GRADLE_PROJECT_FFSHARE_RELEASE_KEY_ALIAS: ffshare-ci
+          ORG_GRADLE_PROJECT_FFSHARE_RELEASE_KEY_PASSWORD: android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Verify APK output
+        run: |
+          mapfile -t apks < <(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print)
+          test "${#apks[@]}" -gt 0
+          printf '%s\n' "${apks[@]}"
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: ffshare-debug-apks
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
