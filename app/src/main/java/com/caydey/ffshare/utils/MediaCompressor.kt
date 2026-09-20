@@ -28,6 +28,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.coroutines.resume
 
 
 class MediaCompressor(private val context: Context) {
@@ -61,7 +62,8 @@ class MediaCompressor(private val context: Context) {
      * Invocation: compressToFile invokes it while holding the process-wide automatic-work mutex.
      * Contract: callback-side logging/EXIF failures cannot strand the continuation; cancellation targets
      * only this session ID; EXIF failure makes the automatic result fail closed instead of replacing input.
-     * Verification: callback and cancellation paths were source-reviewed; FFmpeg runtime is UNVERIFIED.
+     * Verification: callback/cancellation paths and FFmpegKitNext 8.1.1 public getters were source-reviewed;
+     * compilation and FFmpeg runtime are UNVERIFIED until the GitHub build runs.
      */
     private suspend fun compressToFileLocked(
         inputFileUri: Uri,
@@ -93,9 +95,9 @@ class MediaCompressor(private val context: Context) {
             val completedCallback = AtomicBoolean(false)
             val session = FFmpegKit.executeAsync(command, { completed ->
                 completedCallback.set(true)
-                ownedSessionIds.remove(completed.sessionId)
+                ownedSessionIds.remove(completed.getSessionId())
                 val result = runCatching {
-                    val ffmpegSucceeded = completed.returnCode?.isValueSuccess() == true
+                    val ffmpegSucceeded = completed.getReturnCode()?.isValueSuccess() == true
                     val exifSucceeded = if (
                         ffmpegSucceeded && settings.copyExifTags && ExifTools.isValidType(mediaType)
                     ) {
@@ -114,19 +116,19 @@ class MediaCompressor(private val context: Context) {
                             originalName,
                             outputFile.name,
                             ffmpegSucceeded && exifSucceeded,
-                            completed.output,
+                            completed.getOutput(),
                             inputFileSize,
                             if (ffmpegSucceeded && exifSucceeded) outputSize else -1
                         ))
                     }
                     ffmpegSucceeded && exifSucceeded && outputSize > 0L
                 }.getOrDefault(false)
-                continuation.tryResume(result)?.let(continuation::completeResume)
+                continuation.resume(result)
             }, { }, { })
-            activeSessionId.set(session.sessionId)
+            activeSessionId.set(session.getSessionId())
             if (!completedCallback.get()) {
-                ownedSessionIds += session.sessionId
-                if (completedCallback.get()) ownedSessionIds.remove(session.sessionId)
+                ownedSessionIds += session.getSessionId()
+                if (completedCallback.get()) ownedSessionIds.remove(session.getSessionId())
             }
             continuation.invokeOnCancellation {
                 activeSessionId.get().takeIf { it != NO_SESSION }?.let { FFmpegKit.cancel(it) }
@@ -228,7 +230,7 @@ class MediaCompressor(private val context: Context) {
         val completedCallback = AtomicBoolean(false)
         val session = FFmpegKit.executeAsync(command, { session ->
             completedCallback.set(true)
-            ownedSessionIds.remove(session.sessionId)
+            ownedSessionIds.remove(session.getSessionId())
             // completed
             if (session.getReturnCode()?.isValueSuccess() == false) { // failed
                 if (session.getReturnCode()?.isValueCancel() == false) { // failure was not caused by a cancel
@@ -289,8 +291,8 @@ class MediaCompressor(private val context: Context) {
             }
         })
         if (!completedCallback.get()) {
-            ownedSessionIds += session.sessionId
-            if (completedCallback.get()) ownedSessionIds.remove(session.sessionId)
+            ownedSessionIds += session.getSessionId()
+            if (completedCallback.get()) ownedSessionIds.remove(session.getSessionId())
         }
     }
 

@@ -1,5 +1,7 @@
 # Changelog
 
+- 2026-09-20 23:50 Corrected the Kotlin compilation blockers exposed by GitHub run `35544053134`: `PreferencesFragment.kt` now imports and launches `AutoCompressSettingsActivity` through its explicit package, and `MediaCompressor.kt` uses FFmpegKit public session getter APIs plus the public coroutine `resume` API. Three-stage official/source contract research was completed for the Kotlin import and FFmpegKit/coroutine API corrections. Static verification passed with `git diff --check` and exact source readback; GitHub APK compilation and Release publication remain pending.
+
 - 2026-09-20 19:21 Escaped the apostrophe in the automatic-compression Settings summary using Android's documented string-resource syntax. GitHub run `35529832199` proved the preceding FFmpegKitNext correction: native AAR build, diagnostics upload, and AAR verification all passed before `:app:mergeDebugResources` rejected the unescaped apostrophe. Primary Android documentation and AAPT2 source confirm the escape requirement. APK compilation and Release publication require the next push-triggered run.
 
 - 2026-09-20 18:35 Corrected the FFmpegKitNext Nix archive build to use the pinned SDK Build Tools 35.0.0 AAPT2 through Android Gradle Plugin's supported `android.aapt2FromMavenOverride` property. The wrapper now applies the same contract to host-Nix and Docker runs, emits a bounded `build.log` tail on failure, and GitHub Actions retains the complete native build log as a diagnostic artifact. Verified before publication: the failed run's real `build.log` identifies `verifyReleaseResources` and Maven AAPT2 daemon startup as the first failure; Nixpkgs documentation prescribes the override; and the exact Nix-packaged AAPT2 executable launched successfully in the pinned `android-r27d` environment. Full AAR/APK compilation and Release publication remain pending.
@@ -13,6 +15,8 @@
 - 2026-09-20 15:05 Automated successful-master-push APK builds and GitHub Releases after static verification only; no Android build.
 
 - 2026-09-20 17:38 Fix the FFmpegKitNext GitHub Actions build by trusting the runner-owned /workspace bind mount inside the ephemeral Nix container; exact ownership failure and corrected flake evaluation verified, full APK/release pending.
+
+- 2026-09-20 23:50 Corrected the Kotlin compilation blockers exposed by GitHub run 35544053134; GitHub APK compilation and Release publication remain pending.
 
 ## 2026-09-20 13:23 UTC — Reference-first automatic folder compression implementation
 - Completed the source implementation for reference-first automatic compression of new media in selected local shared-storage folders.
