@@ -16,8 +16,7 @@ object CompressionBridge {
         context: Context,
         inputUri: Uri,
         outputFile: File,
-        originalName: String,
-        mimeType: String
+        originalName: String
     ): Boolean {
         return com.caydey.ffshare.utils.MediaCompressor(context).compressToFile(
             inputFileUri = inputUri,

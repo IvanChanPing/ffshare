@@ -57,6 +57,20 @@
     <string name="settings_save_logs_summary">Save all executed FFmpeg commands</string>
     <string name="settings_automatic_compression" tools:ignore="MissingTranslation">Automatic compression</string>
     <string name="settings_automatic_compression_summary" tools:ignore="MissingTranslation">Compress new media in selected folders using FFShare's normal settings</string>
+    <string name="auto_compress_enable" tools:ignore="MissingTranslation">Automatically compress new files</string>
+    <string name="auto_compress_disabled" tools:ignore="MissingTranslation">Automatic compression is off</string>
+    <string name="auto_compress_not_configured" tools:ignore="MissingTranslation">Add a folder to begin</string>
+    <string name="auto_compress_folders" tools:ignore="MissingTranslation">Watched folders</string>
+    <string name="auto_compress_remove" tools:ignore="MissingTranslation">Remove</string>
+    <string name="auto_compress_add" tools:ignore="MissingTranslation">Add folder</string>
+    <string name="auto_compress_adding" tools:ignore="MissingTranslation">Recording existing files…</string>
+    <string name="auto_compress_explanation" tools:ignore="MissingTranslation">Only new media directly inside each selected local shared-storage folder is processed. Existing files become the baseline. FFShare keeps the exact filename and folder, so conversion-output extensions are ignored while all compatible codec, quality, preset, resolution, audio, EXIF, and custom-parameter settings are reused. Monitoring is event-driven through Android’s media provider.</string>
+    <string name="auto_compress_grant_failed" tools:ignore="MissingTranslation">The folder provider did not grant persistent read and write access</string>
+    <string name="auto_compress_folder_not_writable" tools:ignore="MissingTranslation">Choose a readable and writable folder</string>
+    <string name="auto_compress_local_folders_only" tools:ignore="MissingTranslation">Choose a folder in this device’s shared storage. Cloud and virtual folders cannot be monitored reliably.</string>
+    <string name="auto_compress_baselining" tools:ignore="MissingTranslation">Recording existing files…</string>
+    <string name="auto_compress_baseline_complete" tools:ignore="MissingTranslation">Recorded %1$d existing media files; only new files will be compressed</string>
+    <string name="auto_compress_baseline_failed" tools:ignore="MissingTranslation">Could not read the selected folder</string>
 
     <string name="settings_compression_options_title">Compression options</string>
     <string name="settings_conversions_options_title">Conversion options</string>

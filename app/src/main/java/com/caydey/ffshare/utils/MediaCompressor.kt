@@ -20,10 +20,14 @@ import com.caydey.ffshare.R
 import com.caydey.ffshare.utils.logs.Log
 import com.caydey.ffshare.utils.logs.LogsDbHelper
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import java.io.File
-import kotlin.coroutines.resume
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 
 class MediaCompressor(private val context: Context) {
@@ -32,10 +36,11 @@ class MediaCompressor(private val context: Context) {
     private val logsDbHelper by lazy { LogsDbHelper(context) }
 
     private val ffmpegParamMaker = FFmpegParamMaker(settings, utils)
+    private val ownedSessionIds = ConcurrentHashMap.newKeySet<Long>()
 
     fun cancelAllOperations() {
-        Timber.d("Canceling all ffmpeg operations")
-        FFmpegKit.cancel()
+        Timber.d("Canceling this compressor's ffmpeg operations")
+        ownedSessionIds.toList().forEach { FFmpegKit.cancel(it) }
     }
 
     /**
@@ -46,7 +51,23 @@ class MediaCompressor(private val context: Context) {
      * true requires FFmpeg success and a non-empty output. Cancellation cancels FFmpegKit work.
      * Verification: source-level readback only; compilation and device execution are UNVERIFIED.
      */
-    suspend fun compressToFile(inputFileUri: Uri, outputFile: File, originalName: String): Boolean {
+    suspend fun compressToFile(inputFileUri: Uri, outputFile: File, originalName: String): Boolean =
+        autoCompressionMutex.withLock {
+            compressToFileLocked(inputFileUri, outputFile, originalName)
+        }
+
+    /**
+     * Purpose: owns one callback-to-coroutine FFmpeg session without global cancellation.
+     * Invocation: compressToFile invokes it while holding the process-wide automatic-work mutex.
+     * Contract: callback-side logging/EXIF failures cannot strand the continuation; cancellation targets
+     * only this session ID; EXIF failure makes the automatic result fail closed instead of replacing input.
+     * Verification: callback and cancellation paths were source-reviewed; FFmpeg runtime is UNVERIFIED.
+     */
+    private suspend fun compressToFileLocked(
+        inputFileUri: Uri,
+        outputFile: File,
+        originalName: String
+    ): Boolean {
         val mediaType = utils.getMediaType(inputFileUri)
         if (!utils.isSupportedMediaType(mediaType)) return false
 
@@ -68,24 +89,48 @@ class MediaCompressor(private val context: Context) {
         val command = "-y -i $inputSaf $params $outputSaf"
 
         return suspendCancellableCoroutine { continuation ->
-            FFmpegKit.executeAsync(command, { session ->
-                val succeeded = session.getReturnCode()?.isValueSuccess() == true
-                val outputSize = outputFile.length()
-                logsDbHelper.addLog(Log(
-                    command,
-                    originalName,
-                    outputFile.name,
-                    succeeded,
-                    session.getOutput(),
-                    inputFileSize,
-                    if (succeeded) outputSize else -1
-                ))
-                if (succeeded && settings.copyExifTags && ExifTools.isValidType(mediaType)) {
-                    ExifTools.copyExif(context.contentResolver.openInputStream(inputFileUri)!!, outputFile)
-                }
-                if (continuation.isActive) continuation.resume(succeeded && outputSize > 0L)
+            val activeSessionId = AtomicLong(NO_SESSION)
+            val completedCallback = AtomicBoolean(false)
+            val session = FFmpegKit.executeAsync(command, { completed ->
+                completedCallback.set(true)
+                ownedSessionIds.remove(completed.sessionId)
+                val result = runCatching {
+                    val ffmpegSucceeded = completed.returnCode?.isValueSuccess() == true
+                    val exifSucceeded = if (
+                        ffmpegSucceeded && settings.copyExifTags && ExifTools.isValidType(mediaType)
+                    ) {
+                        runCatching {
+                            context.contentResolver.openInputStream(inputFileUri)?.use { input ->
+                                ExifTools.copyExif(input, outputFile)
+                            } ?: error("Unable to reopen source for EXIF")
+                        }.isSuccess
+                    } else {
+                        true
+                    }
+                    val outputSize = outputFile.length()
+                    runCatching {
+                        logsDbHelper.addLog(Log(
+                            command,
+                            originalName,
+                            outputFile.name,
+                            ffmpegSucceeded && exifSucceeded,
+                            completed.output,
+                            inputFileSize,
+                            if (ffmpegSucceeded && exifSucceeded) outputSize else -1
+                        ))
+                    }
+                    ffmpegSucceeded && exifSucceeded && outputSize > 0L
+                }.getOrDefault(false)
+                continuation.tryResume(result)?.let(continuation::completeResume)
             }, { }, { })
-            continuation.invokeOnCancellation { FFmpegKit.cancel() }
+            activeSessionId.set(session.sessionId)
+            if (!completedCallback.get()) {
+                ownedSessionIds += session.sessionId
+                if (completedCallback.get()) ownedSessionIds.remove(session.sessionId)
+            }
+            continuation.invokeOnCancellation {
+                activeSessionId.get().takeIf { it != NO_SESSION }?.let { FFmpegKit.cancel(it) }
+            }
         }
     }
 
@@ -180,7 +225,10 @@ class MediaCompressor(private val context: Context) {
         }
 
         Timber.d("Executing ffmpeg command: 'ffmpeg %s'", command)
-        FFmpegKit.executeAsync(command, { session ->
+        val completedCallback = AtomicBoolean(false)
+        val session = FFmpegKit.executeAsync(command, { session ->
+            completedCallback.set(true)
+            ownedSessionIds.remove(session.sessionId)
             // completed
             if (session.getReturnCode()?.isValueSuccess() == false) { // failed
                 if (session.getReturnCode()?.isValueCancel() == false) { // failure was not caused by a cancel
@@ -240,6 +288,10 @@ class MediaCompressor(private val context: Context) {
                 txtOutputFileSize.text = utils.bytesToHuman(statistics.size)
             }
         })
+        if (!completedCallback.get()) {
+            ownedSessionIds += session.sessionId
+            if (completedCallback.get()) ownedSessionIds.remove(session.sessionId)
+        }
     }
 
     fun compressFiles(activity: Activity, inputFilesUri: ArrayList<Uri>, callback: (uris: ArrayList<Uri>) -> Unit) {
@@ -290,6 +342,11 @@ class MediaCompressor(private val context: Context) {
             }
         }
         iteratorFunction(0, false) // start iterations
+    }
+
+    companion object {
+        private const val NO_SESSION = -1L
+        private val autoCompressionMutex = Mutex()
     }
 
 }

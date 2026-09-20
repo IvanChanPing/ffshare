@@ -20,3 +20,4 @@ local.properties
 /test_files
 /ffmpeg-kit-next
 /app/libs
+/.ffmpeg-kit-next-build

@@ -13,6 +13,7 @@ object AutoCompressPrefs {
     private const val PREFS = "auto_compress"
     private const val KEY_ENABLED = "enabled"
     private const val KEY_FOLDERS = "folders"
+    private const val KEY_STATUS = "status"
 
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -42,5 +43,15 @@ object AutoCompressPrefs {
         current -= uri.toString()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putStringSet(KEY_FOLDERS, current).apply()
+    }
+
+    fun status(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_STATUS, "")
+            .orEmpty()
+
+    fun setStatus(context: Context, status: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_STATUS, status).apply()
     }
 }
