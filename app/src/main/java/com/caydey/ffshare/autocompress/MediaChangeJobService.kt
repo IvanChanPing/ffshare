@@ -3,32 +3,60 @@ package com.caydey.ffshare.autocompress
 import android.app.job.JobParameters
 import android.app.job.JobService
 import androidx.work.Data
+import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import java.security.MessageDigest
 
 /**
- * Purpose: handles a MediaStore content trigger, scans selected folders once, and queues unique work.
+ * Purpose: handles MediaStore triggers, scans selected local trees, and queues unique work.
  * Invocation: AutoCompressScheduler's TriggerContentUri JobScheduler job.
- * Contract: mark-before-enqueue deduplicates duplicate notifications; the next watcher is registered
- * after discovery because content-trigger jobs cannot be persisted or periodic.
+ * Contract: the interruptible thread performs one enumeration and atomic DB claims before enqueue;
+ * successful discovery re-registers before jobFinished exactly like AOSP PhotosContentJob, while a
+ * discovery failure asks JobScheduler to retry the current run.
  * Verification: source ordering readback only; JobScheduler/WorkManager runtime is UNVERIFIED.
  */
 class MediaChangeJobService : JobService() {
+    @Volatile private var discoveryThread: Thread? = null
+
     override fun onStartJob(params: JobParameters): Boolean {
-        Thread {
+        val thread = Thread {
+            var retryJob = false
             try {
                 discoverAndQueue()
+            } catch (error: Throwable) {
+                retryJob = true
+                AutoCompressPrefs.setStatus(this, "Discovery failed: ${error.javaClass.simpleName}")
             } finally {
-                // TriggerContentUri jobs cannot be persisted or periodic. Android's documented
-                // pattern is to schedule the next watcher after handling this callback.
-                AutoCompressScheduler.schedule(this)
+                val stillOwnsRun = synchronized(this) {
+                    if (discoveryThread === Thread.currentThread()) {
+                        discoveryThread = null
+                        true
+                    } else {
+                        false
+                    }
+                }
+                if (stillOwnsRun) {
+                    // AOSP's PhotosContentJob re-registers before jobFinished. If discovery failed,
+                    // ask JobScheduler to retry this run instead of replacing it with a fresh watcher.
+                    if (!retryJob) retryJob = !AutoCompressScheduler.schedule(this)
+                    jobFinished(params, retryJob)
+                }
             }
-        }.start()
+        }
+        synchronized(this) { discoveryThread = thread }
+        thread.start()
         return true
     }
 
-    override fun onStopJob(params: JobParameters): Boolean = true
+    override fun onStopJob(params: JobParameters): Boolean {
+        synchronized(this) {
+            discoveryThread?.interrupt()
+            discoveryThread = null
+        }
+        return true
+    }
 
     private fun discoverAndQueue() {
         if (!AutoCompressPrefs.isEnabled(this)) return
@@ -37,15 +65,14 @@ class MediaChangeJobService : JobService() {
         val wm = WorkManager.getInstance(this)
 
         for (folder in AutoCompressPrefs.folders(this)) {
-            for (item in FolderScanner.scan(this, folder)) {
-                val key = item.uri.toString()
-                if (db.contains(key)) continue
-
-                // Mark before queueing so duplicate MediaStore notifications do not enqueue twice.
-                db.markSeen(key, folder.toString(), item.size, item.modified, "QUEUED")
+            val items = FolderScanner.scan(this, folder).toList()
+            db.reconcileFolder(folder.toString(), items.mapTo(mutableSetOf()) { it.name })
+            for (item in items) {
+                if (Thread.currentThread().isInterrupted) return
+                if (!db.claim(item)) continue
 
                 val data = Data.Builder()
-                    .putString(AutoCompressWorker.KEY_URI, key)
+                    .putString(AutoCompressWorker.KEY_URI, item.uri.toString())
                     .putString(AutoCompressWorker.KEY_FOLDER_URI, folder.toString())
                     .putString(AutoCompressWorker.KEY_NAME, item.name)
                     .putString(AutoCompressWorker.KEY_MIME, item.mimeType)
@@ -55,14 +82,34 @@ class MediaChangeJobService : JobService() {
 
                 val request = OneTimeWorkRequestBuilder<AutoCompressWorker>()
                     .setInputData(data)
+                    .setConstraints(Constraints.Builder().setRequiresStorageNotLow(true).build())
+                    .addTag(AutoCompressWorker.TAG_ALL)
+                    .addTag(AutoCompressWorker.folderTag(folder.toString()))
                     .build()
 
-                wm.enqueueUniqueWork(
-                    "ffshare-auto-${key.hashCode()}",
-                    ExistingWorkPolicy.KEEP,
-                    request
-                )
+                runCatching {
+                    wm.enqueueUniqueWork(
+                        "ffshare-auto-${sha256("${folder}\u0000${item.name}")}",
+                        // A changed generation supersedes in-flight work for the same folder/name.
+                        // Snapshot-conditional DB updates prevent the cancelled generation from
+                        // overwriting the replacement request's state.
+                        ExistingWorkPolicy.REPLACE,
+                        request
+                    ).result.get()
+                }.onFailure {
+                    db.markState(
+                        item,
+                        "FAILED",
+                        "WorkManager enqueue failed",
+                        incrementAttempt = true
+                    )
+                    throw it
+                }
             }
         }
     }
+
+    private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray())
+        .joinToString("") { "%02x".format(it) }
 }

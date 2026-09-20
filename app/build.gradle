@@ -3,6 +3,22 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Purpose: keep debug builds independent from private release-signing credentials.
+// Invocation: Gradle reads these project properties from ~/.gradle/gradle.properties,
+//             ORG_GRADLE_PROJECT_* environment variables, or explicit -P arguments.
+// Contract: all four values must be present before a release SigningConfig is created;
+//           otherwise debug uses Android's standard debug key and release remains unsigned.
+// Verification: property/configuration flow was statically checked; Gradle execution is deferred.
+def releaseSigningValues = [
+    storeFile: findProperty('FFSHARE_RELEASE_STORE_FILE'),
+    storePassword: findProperty('FFSHARE_RELEASE_STORE_PASSWORD'),
+    keyAlias: findProperty('FFSHARE_RELEASE_KEY_ALIAS'),
+    keyPassword: findProperty('FFSHARE_RELEASE_KEY_PASSWORD')
+]
+def releaseSigningConfigured = releaseSigningValues.values().every {
+    it != null && !it.toString().trim().isEmpty()
+}
+
 android {
     compileSdk 34
 
@@ -16,12 +32,13 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {
-        release {
-            // environment variables from ~/.gradle/gradle.properties
-            storeFile file(FFSHARE_RELEASE_STORE_FILE)
-            storePassword FFSHARE_RELEASE_STORE_PASSWORD
-            keyAlias FFSHARE_RELEASE_KEY_ALIAS
-            keyPassword FFSHARE_RELEASE_KEY_PASSWORD
+        if (releaseSigningConfigured) {
+            release {
+                storeFile file(releaseSigningValues.storeFile)
+                storePassword releaseSigningValues.storePassword
+                keyAlias releaseSigningValues.keyAlias
+                keyPassword releaseSigningValues.keyPassword
+            }
         }
     }
     
@@ -50,7 +67,9 @@ android {
             }
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
         }
         debug {
             ndk {

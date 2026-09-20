@@ -15,4 +15,8 @@ data class MediaCandidate(
     val mimeType: String,
     val size: Long,
     val modified: Long
-)
+) {
+    fun sameSnapshot(other: MediaCandidate): Boolean =
+        folderUri == other.folderUri && name == other.name && size == other.size &&
+            (modified == 0L || other.modified == 0L || modified == other.modified)
+}
