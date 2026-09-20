@@ -5,11 +5,13 @@ set -euo pipefail
 # Purpose: reproducibly generate FFShare's required FFmpegKitNext Android AAR.
 # Invocation: ./build_ffmpegkit.sh [output-directory], or --check for a no-build preflight;
 #             set FFMPEG_KIT_DOCKER_NETWORK when a custom Docker daemon has no default bridge.
-# Contract: use upstream tag v8.1.1 and its pinned android-r27d Nix shell; never patch upstream
-#           codec sources. Native output stays in an ignored resumable worktree until verified.
+# Contract: use upstream tag v8.1.1 and its pinned android-r27d Nix shell; force Gradle to use
+#           that shell's executable AAPT2 instead of AGP's incompatible Maven binary; never patch
+#           upstream codec sources. Native output stays in an ignored resumable worktree until verified.
 #           Docker networking is unchanged unless the caller explicitly supplies a network mode;
 #           the ephemeral container trusts only its /workspace bind mount for Nix flake evaluation.
-# Verification: run Bash/preflight checks, a mismatched-UID bind-mount probe, and the full AAR build.
+# Verification: run Bash/preflight checks, an exact-environment AAPT2 probe, a mismatched-UID
+#               bind-mount probe, and the full AAR build. Failures print a bounded log tail.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT="${SCRIPT_DIR}/app/libs"
 CHECK_ONLY=0
@@ -69,6 +71,35 @@ BUILD_ARGS=(
   --enable-libjxl
 )
 
+run_android_build='\
+  set -euo pipefail
+  if [[ ! -x /usr/bin/perl && -w /usr/bin ]]; then
+    ln -sf "$(command -v perl)" /usr/bin/perl
+  fi
+  aapt2="$ANDROID_SDK_ROOT/build-tools/$FFMPEG_KIT_NIX_ANDROID_BUILD_TOOLS/aapt2"
+  if [[ ! -x "$aapt2" ]]; then
+    printf "error: pinned Nix AAPT2 is not executable: %s\n" "$aapt2" >&2
+    exit 1
+  fi
+  export GRADLE_OPTS="${GRADLE_OPTS:+$GRADLE_OPTS }-Dorg.gradle.project.android.aapt2FromMavenOverride=$aapt2"
+  exec bash ./scripts/start-android.sh "$@"
+'
+
+print_build_log_on_failure() {
+  local status=$?
+  if ((status != 0)); then
+    printf '\nFFmpegKitNext build failed; last 200 lines of %s/build.log:\n' "${SOURCE_DIR}" >&2
+    if [[ -f "${SOURCE_DIR}/build.log" ]]; then
+      tail -n 200 "${SOURCE_DIR}/build.log" >&2
+    else
+      printf 'build.log was not created\n' >&2
+    fi
+  fi
+  return "${status}"
+}
+
+trap print_build_log_on_failure EXIT
+
 if ! command -v git >/dev/null 2>&1; then
   printf 'error: git is required to obtain FFmpegKitNext %s\n' "${FFMPEG_KIT_TAG_VERSION}" >&2
   exit 1
@@ -117,7 +148,8 @@ fi
 if command -v nix >/dev/null 2>&1; then
   (
     cd "${SOURCE_DIR}"
-    ./nix-android.sh -p android-r27d "${BUILD_ARGS[@]}"
+    export NIX_USER_CONF_FILES="${SOURCE_DIR}/nix.conf"
+    nix develop .#android-r27d -c bash -lc "${run_android_build}" bash "${BUILD_ARGS[@]}"
   )
 else
   docker run --rm \
@@ -132,9 +164,7 @@ else
       ln -sf /root/.nix-profile/bin/bash /bin/bash
       git config --global --add safe.directory /workspace
       nix develop .#android-r27d -c bash -lc '\''
-        set -euo pipefail
-        ln -sf "$(command -v perl)" /usr/bin/perl
-        exec bash ./scripts/start-android.sh "$@"
+        '"${run_android_build}"'
       '\'' bash "$@"
     ' bash "${BUILD_ARGS[@]}"
 fi
