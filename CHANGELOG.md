@@ -8,6 +8,8 @@
 
 - 2026-09-20 15:05 Automated successful-master-push APK builds and GitHub Releases after static verification only; no Android build.
 
+- 2026-09-20 17:38 Fix the FFmpegKitNext GitHub Actions build by trusting the runner-owned /workspace bind mount inside the ephemeral Nix container; exact ownership failure and corrected flake evaluation verified, full APK/release pending.
+
 ## 2026-09-20 13:23 UTC — Reference-first automatic folder compression implementation
 - Completed the source implementation for reference-first automatic compression of new media in selected local shared-storage folders.
 - Added the local-tree-only watcher/settings/workflow path, baseline and generation-safe queueing, reused FFShare compression bridge, foreground `dataSync` WorkManager execution, per-session FFmpeg cancellation, and backup-first verified same-folder replacement with rollback and recovery state.

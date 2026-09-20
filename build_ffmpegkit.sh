@@ -7,8 +7,9 @@ set -euo pipefail
 #             set FFMPEG_KIT_DOCKER_NETWORK when a custom Docker daemon has no default bridge.
 # Contract: use upstream tag v8.1.1 and its pinned android-r27d Nix shell; never patch upstream
 #           codec sources. Native output stays in an ignored resumable worktree until verified.
-#           Docker networking is unchanged unless the caller explicitly supplies a network mode.
-# Verification: shell/preflight/static path checks pass; native compilation is deferred.
+#           Docker networking is unchanged unless the caller explicitly supplies a network mode;
+#           the ephemeral container trusts only its /workspace bind mount for Nix flake evaluation.
+# Verification: run Bash/preflight checks, a mismatched-UID bind-mount probe, and the full AAR build.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT="${SCRIPT_DIR}/app/libs"
 CHECK_ONLY=0
@@ -129,6 +130,7 @@ else
       set -euo pipefail
       mkdir -p /bin /usr/bin
       ln -sf /root/.nix-profile/bin/bash /bin/bash
+      git config --global --add safe.directory /workspace
       nix develop .#android-r27d -c bash -lc '\''
         set -euo pipefail
         ln -sf "$(command -v perl)" /usr/bin/perl
