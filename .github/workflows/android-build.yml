@@ -1,7 +1,7 @@
 # Purpose: Compile FFShare debug APKs and publish every successful master build as a GitHub Release.
 # Invocation: Automatic on every push to master; manual dispatch remains available for validation only.
-# Contract: Java 21, Android API 34, Gradle wrapper, FFmpegKitNext 8.1.1 for ARM, and one immutable build release per successful push.
-# Verification: The job validates the AAR, requires at least one APK, publishes checksums, and creates the release only after every build step succeeds.
+# Contract: Java 21, Android API 34, Gradle wrapper, FFmpegKitNext 8.1.1 for ARM, one immutable build release per successful push, and retained native diagnostics on failure.
+# Verification: The job validates the AAR, always uploads FFmpegKitNext's build log when native compilation runs, requires at least one APK, publishes checksums, and creates the release only after every build step succeeds.
 name: Build Android APK
 
 on:
@@ -62,6 +62,15 @@ jobs:
       - name: Build FFmpegKitNext AAR
         if: steps.ffmpeg-kit-cache.outputs.cache-hit != 'true'
         run: ./build_ffmpegkit.sh
+
+      - name: Upload FFmpegKitNext build diagnostics
+        if: always() && steps.ffmpeg-kit-cache.outputs.cache-hit != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ffmpeg-kit-next-build-log-${{ github.run_number }}-${{ github.run_attempt }}
+          path: .ffmpeg-kit-next-build/build.log
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Verify FFmpegKitNext AAR
         run: |
