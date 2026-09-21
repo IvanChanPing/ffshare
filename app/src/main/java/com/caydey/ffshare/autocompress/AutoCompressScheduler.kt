@@ -29,14 +29,15 @@ object AutoCompressScheduler {
             ComponentName(context, MediaChangeJobService::class.java)
         )
             // Mirror AOSP's PhotosContentJob pattern: monitor both the concrete external-files
-            // collection and the provider root because a callback may be specific or generic.
+            // collection and every descendant of the provider root because image, video, and audio
+            // collection notifications are siblings of the files collection, not its descendants.
             .addTriggerContentUri(JobInfo.TriggerContentUri(
                 MediaStore.Files.getContentUri("external"),
                 JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS
             ))
             .addTriggerContentUri(JobInfo.TriggerContentUri(
                 Uri.parse("content://${MediaStore.AUTHORITY}/"),
-                0
+                JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS
             ))
             .setTriggerContentUpdateDelay(2_000L)
             .setTriggerContentMaxDelay(8_000L)

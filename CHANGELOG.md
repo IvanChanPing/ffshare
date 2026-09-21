@@ -1,5 +1,7 @@
 # Changelog
 
+- 2026-09-21 13:38 Fixed automatic folder compression not waking for MediaStore image, video, and audio collection changes by observing descendants of the provider root; source/static verified only, with compilation and device behavior still unverified.
+
 - 2026-09-21 00:33 GitHub run `35545890479` successfully built FFShare debug APKs at `e77fe46fe57af9d4a8de3556f90b1ca794ba8cec` and published Release `build-5-1` with `app-arm64-v8a-debug.apk`, `app-armeabi-v7a-debug.apk`, `app-universal-debug.apk`, `SHA256SUMS`, and `BUILD-INFO.txt`. ARM64 APK SHA-256 matched `ee94086c68be46872ee3adaa74b03e65c91249b78a20b9281c36d81fea97b164`. Local-only, unpushed, unrun workflow correction now splits FFmpegKitNext cache restore/save so the verified native AAR is saved immediately before downstream APK compilation.
 
 - 2026-09-20 23:50 Corrected the Kotlin compilation blockers exposed by GitHub run `35544053134`: `PreferencesFragment.kt` now imports and launches `AutoCompressSettingsActivity` through its explicit package, and `MediaCompressor.kt` uses FFmpegKit public session getter APIs plus the public coroutine `resume` API. Three-stage official/source contract research was completed for the Kotlin import and FFmpegKit/coroutine API corrections. Static verification passed with `git diff --check` and exact source readback; GitHub APK compilation and Release publication remain pending.
