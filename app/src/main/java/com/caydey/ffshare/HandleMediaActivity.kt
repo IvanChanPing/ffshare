@@ -18,6 +18,16 @@ import com.caydey.ffshare.utils.Utils
 import timber.log.Timber
 
 
+/**
+ * Purpose: owns FFShare's manual share-to-compress screen and keeps its active FFmpeg session alive
+ * while another full-screen activity temporarily covers this activity.
+ * Invocation: Android ACTION_SEND or ACTION_SEND_MULTIPLE shares for supported media types.
+ * Contract: only explicit Cancel or finish() cancels this activity's sessions; onStop() is not user
+ * cancellation because Android also invokes it for temporary invisibility. Automatic compression is
+ * owned separately by AutoCompressWorker and is unaffected by this activity lifecycle.
+ * Verification: lifecycle cancellation call sites were source-checked; Android runtime is unverified.
+ * Visual: the existing FFShare progress screen and its CANCEL button are unchanged.
+ */
 class HandleMediaActivity : AppCompatActivity() {
     // by lazy means load when variable is used, lazy-loading helps performance
     // also without it there is a null error for applicationContext
@@ -42,11 +52,6 @@ class HandleMediaActivity : AppCompatActivity() {
         mediaCompressor.cancelAllOperations()
         scheduleCacheCleanup()
         super.finish()
-    }
-
-    override fun onStop() {
-        mediaCompressor.cancelAllOperations()
-        super.onStop()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
