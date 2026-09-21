@@ -12,6 +12,9 @@
 local.properties
 
 *.apk
+*.jks
+*.keystore
+*.p12
 /repo
 /stats
 /app/release

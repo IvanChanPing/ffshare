@@ -3,12 +3,16 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
-// Purpose: keep debug builds independent from private release-signing credentials.
+// Purpose: use one persistent signing identity for CI-published APKs while
+//          keeping ordinary local debug builds independent from private credentials.
 // Invocation: Gradle reads these project properties from ~/.gradle/gradle.properties,
 //             ORG_GRADLE_PROJECT_* environment variables, or explicit -P arguments.
 // Contract: all four values must be present before a release SigningConfig is created;
-//           otherwise debug uses Android's standard debug key and release remains unsigned.
-// Verification: property/configuration flow was statically checked; Gradle execution is deferred.
+//           CI supplies them from GitHub encrypted secrets and assigns that same key to
+//           every published debug APK. Without them, local debug uses Android's standard
+//           debug key and release remains unsigned.
+// Verification: the GitHub workflow validates the keystore and every output APK against
+//               the pinned SHA-256 signing-certificate fingerprint before publication.
 def releaseSigningValues = [
     storeFile: findProperty('FFSHARE_RELEASE_STORE_FILE'),
     storePassword: findProperty('FFSHARE_RELEASE_STORE_PASSWORD'),
@@ -76,6 +80,9 @@ android {
                 abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
             }
             minifyEnabled false
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
         }
 
     }

@@ -1,7 +1,7 @@
 # Purpose: Compile FFShare debug APKs and publish every successful master build as a GitHub Release.
 # Invocation: Automatic on every push to master; manual dispatch remains available for validation only.
-# Contract: Java 21, Android API 34, Gradle wrapper, FFmpegKitNext 8.1.1 for ARM, immediate caching of a newly verified native AAR, one immutable build release per successful push, and retained native diagnostics on failure.
-# Verification: The job validates and caches the AAR before APK compilation, always uploads FFmpegKitNext's build log when native compilation runs, requires at least one APK, publishes checksums, and creates the release only after every build step succeeds.
+# Contract: Java 21, Android API 34, Gradle wrapper, FFmpegKitNext 8.1.1 for ARM, one persistent encrypted signing key for every published APK, immediate caching of a newly verified native AAR, one immutable build release per successful push, and retained native diagnostics on failure.
+# Verification: The job validates the restored keystore against a pinned public certificate fingerprint, validates and caches the AAR before APK compilation, always uploads FFmpegKitNext's build log when native compilation runs, verifies every APK uses the pinned certificate, requires at least one APK, publishes checksums, and creates the release only after every build step succeeds.
 name: Build Android APK
 
 on:
@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 300
     env:
       FFMPEG_KIT_JOBS: "2"
+      EXPECTED_SIGNING_CERT_SHA256: "46a689628d6eb3b8caed692681adedf8e018554b410ec3f77c2694848008cd32"
 
     steps:
       - name: Check out source
@@ -48,6 +49,45 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: wrapper
+
+      # The private key is never committed. GitHub stores the PKCS12 blob and its
+      # credentials as repository secrets; only the public certificate fingerprint
+      # above is source-controlled so an unintended key change fails closed.
+      - name: Restore persistent APK signing identity
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.FFSHARE_SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.FFSHARE_SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.FFSHARE_SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.FFSHARE_SIGNING_KEY_PASSWORD }}
+        run: |
+          for required in \
+            SIGNING_KEYSTORE_BASE64 \
+            SIGNING_STORE_PASSWORD \
+            SIGNING_KEY_ALIAS \
+            SIGNING_KEY_PASSWORD
+          do
+            if [[ -z "${!required}" ]]; then
+              echo "Required signing secret is missing: $required" >&2
+              exit 1
+            fi
+          done
+
+          signing_dir="$RUNNER_TEMP/ffshare-signing"
+          signing_store="$signing_dir/ffshare-ci-signing.p12"
+          mkdir -p "$signing_dir"
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$signing_store"
+          chmod 600 "$signing_store"
+
+          actual_fingerprint="$({
+            keytool -list -v \
+              -keystore "$signing_store" \
+              -storepass "$SIGNING_STORE_PASSWORD" \
+              -alias "$SIGNING_KEY_ALIAS"
+          } | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d ':' | tr 'A-F' 'a-f')"
+          if [[ "$actual_fingerprint" != "$EXPECTED_SIGNING_CERT_SHA256" ]]; then
+            echo "Signing certificate does not match the pinned FFShare identity." >&2
+            exit 1
+          fi
 
       - name: Restore FFmpegKitNext AAR
         id: ffmpeg-kit-cache
@@ -86,7 +126,34 @@ jobs:
           key: ${{ steps.ffmpeg-kit-cache.outputs.cache-primary-key }}
 
       - name: Compile debug APKs
+        env:
+          ORG_GRADLE_PROJECT_FFSHARE_RELEASE_STORE_FILE: ${{ runner.temp }}/ffshare-signing/ffshare-ci-signing.p12
+          ORG_GRADLE_PROJECT_FFSHARE_RELEASE_STORE_PASSWORD: ${{ secrets.FFSHARE_SIGNING_STORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_FFSHARE_RELEASE_KEY_ALIAS: ${{ secrets.FFSHARE_SIGNING_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_FFSHARE_RELEASE_KEY_PASSWORD: ${{ secrets.FFSHARE_SIGNING_KEY_PASSWORD }}
         run: ./gradlew --no-daemon --stacktrace assembleDebug
+
+      - name: Verify persistent APK signing identity
+        run: |
+          apksigner="$ANDROID_HOME/build-tools/34.0.0/apksigner"
+          mapfile -d '' -t apks < <(
+            find app/build/outputs/apk/debug -type f -name '*.apk' -print0 | sort -z
+          )
+          if (( ${#apks[@]} == 0 )); then
+            echo "No debug APKs were produced." >&2
+            exit 1
+          fi
+
+          for apk in "${apks[@]}"; do
+            actual_fingerprint="$({
+              "$apksigner" verify --print-certs "$apk"
+            } | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+            if [[ "$actual_fingerprint" != "$EXPECTED_SIGNING_CERT_SHA256" ]]; then
+              echo "Unexpected signing certificate: $apk" >&2
+              exit 1
+            fi
+          done
+          rm -f "$RUNNER_TEMP/ffshare-signing/ffshare-ci-signing.p12"
 
       - name: Collect APKs and checksums
         run: |
@@ -111,6 +178,7 @@ jobs:
           {
             printf 'commit=%s\n' "$GITHUB_SHA"
             printf 'runner=%s/%s\n' "$RUNNER_OS" "$RUNNER_ARCH"
+            printf 'signing_cert_sha256=%s\n' "$EXPECTED_SIGNING_CERT_SHA256"
             printf 'generated_utc=%s\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
           } > "$artifact_dir/BUILD-INFO.txt"
           ls -lh "$artifact_dir"
@@ -136,5 +204,5 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "FFShare automatic build — $release_time" \
-            --notes "Automatic debug APK build for commit $GITHUB_SHA. Includes APK files, SHA-256 checksums, and build metadata." \
+            --notes "Automatic debug APK build for commit $GITHUB_SHA. Every published build uses the pinned FFShare signing certificate $EXPECTED_SIGNING_CERT_SHA256. Includes APK files, SHA-256 checksums, and build metadata." \
             --latest
