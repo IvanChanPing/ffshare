@@ -1,7 +1,17 @@
-## CURRENT STATE / NEXT STEP   (updated 2026-09-21 00:33)
+## CURRENT STATE / NEXT STEP   (updated 2026-09-21 13:38)
+
+- GOAL: Correct the automatic watcher that did not react when new files appeared in selected folders.
+- DONE (verified): Android's `TriggerContentUri` contract and CTS establish that descendant content-provider notifications require `FLAG_NOTIFY_FOR_DESCENDANTS`; MediaStore inserts notify collection/item URIs below `content://media/`.
+- DONE (verified): `AutoCompressScheduler` now registers the MediaStore provider root with `FLAG_NOTIFY_FOR_DESCENDANTS`, while retaining the external-files trigger, non-persisted one-shot lifecycle, delays, and all scheduler callers.
+- DONE (verified): Exact diff review, caller scan, `git diff --check`, two-trigger/two-descendant-flag assertions, no-periodic/no-persisted assertions, and DONT TOUCH scan passed.
+- IN PROGRESS: Source-only correction is ready for bookkeeping/finalization; no Gradle, APK, GitHub workflow, install, or device test was run.
+- NEXT STEP: Compile through the existing GitHub workflow only when explicitly authorized, then install and verify a newly added image, video, and audio file in a selected folder.
+- KEY PATHS: `app/src/main/java/com/caydey/ffshare/autocompress/AutoCompressScheduler.kt`, `docs/FFSHARE_AUTOCOMPRESS_TASK_JOURNAL.md`, `CHANGELOG.md`.
+
+## PRIOR STATE / NEXT STEP   (updated 2026-09-21 00:33)
 
 <!--HK:NOW-->
-> **NOW (2026-09-21 00:33):** GitHub run `35545890479` completed successfully at exact SHA `e77fe46fe57af9d4a8de3556f90b1ca794ba8cec`, built the debug APKs, and published Release `build-5-1`. The ARM64 APK download SHA-256 matched `ee94086c68be46872ee3adaa74b03e65c91249b78a20b9281c36d81fea97b164`; `BUILD-INFO.txt` records commit `e77fe46fe57af9d4a8de3556f90b1ca794ba8cec` and `generated_utc=2026-09-21 00:30 UTC`. Local workflow cache correction is already made and statically verified, but remains unpushed and unrun.  ·  **NEXT:** Push the cache-only workflow correction only on explicit authorization; do not start another GitHub run from this bookkeeping pass.
+> **NOW (2026-09-21 13:41):** 2026-09-21 13:38 — Source-only watcher correction is statically verified and ready; provider-root descendant notifications are now observed.  ·  **NEXT:** 2026-09-21 13:38 — On explicit authorization, push integration through the existing GitHub workflow, compile, install, and physically verify new image/video/audio arrivals.
 <!--/HK:NOW-->
 - GOAL: Make every successful push to FFShare `master` compile an APK and publish it with checksums and build metadata on the fork's GitHub Releases page.
 - DONE (verified): User requested a clean reference-first implementation instead of more patching of the earlier design.
@@ -165,5 +175,15 @@
 - PENDING: AAR verification, Gradle APK compilation, artifact collection/upload, Release publication, and release-asset verification have not run yet. GitHub's Releases API still returned an empty list while the native build remained active.
 - NEXT: Poll run `35527004252` and job `106120810005` to terminal status. Do not start a replacement run merely because an observer disconnects.
 
+### 2026-09-21 13:38 — MediaStore descendant-trigger defect corrected
+- USER OBSERVATION: Newly arriving files in a selected watched folder remained uncompressed; the legacy Logs screen was empty.
+- VERIFIED / UI INTERPRETATION: `LogsActivity` displays its disabled-state message only when logs are empty and `Settings.saveLogs` is false. The screenshot therefore proves an empty FFmpeg log database with logging enabled, not watcher execution.
+- VERIFIED / ROOT CAUSE: `AutoCompressScheduler` registered `content://media/` with flag `0`, so it observed only an exact root notification. Android CTS and `JobInfo.TriggerContentUri` define `FLAG_NOTIFY_FOR_DESCENDANTS` as required for descendant URI changes; MediaProvider notifies collection and item URIs for inserts. The existing `/external/file` trigger does not contain sibling image, video, or audio collection paths.
+- VERIFIED / CHANGE: The provider-root trigger now uses `FLAG_NOTIFY_FOR_DESCENDANTS`; its owner comment documents why both triggers exist. No worker, database, replacement transaction, permissions, UI, or compression-setting behavior changed.
+- VERIFIED / STATIC CHECKS: `git diff --check` passed; scheduler source contains exactly two content triggers and exactly two descendant flags; no periodic or persisted job was introduced; all scheduler callers were reviewed; no DONT TOUCH marker applies.
+- UNVERIFIED: Android/Kotlin compilation, APK generation, physical JobScheduler callback delivery, WorkManager/FFmpeg execution, same-folder replacement, and real UI behavior were not run because Android compilation is not authorized this turn.
+- NEXT STEP: On explicit authorization, finalize/publish the source correction, let the existing push workflow compile it, and run a physical image/video/audio arrival test.
+
 ## HK LOG
 - 2026-09-20 17:40 — 2026-09-20 17:38 — VERIFIED: GitHub run 35519028131 failed only at Nix/libgit2 ownership validation; the surgical safe.directory fix reproduces the failure before the line and passes the same Nix flake operation after it; shell syntax, script preflight, and diff checks pass. The fix is ready for a timestamped local finalize; GitHub push, full CI compileation, and release creation remain pending. / next: 2026-09-20 17:38 — After finalize completion, verify the resulting commit, push HEAD to fork/master through the Decodo proxy, monitor the exact Actions run to terminal success, then verify the new GitHub Release contains an APK and checksums. — 2026-09-20 17:38 — VERIFIED: run 35519028131 log reports repository path /workspace is not owned by current user; disposable mismatched-owner Docker probe reproduced that exact error and safe.directory made nix flake metadata pass; bash syntax/preflight/diff checks pass. CHANGED PATHS: build_ffmpegkit.sh. ARTIFACT: none yet. UNVERIFIED: full FFmpegKit AAR build, Gradle APK compile, GitHub release.
+- 2026-09-21 13:41 — 2026-09-21 13:38 — Source-only watcher correction is statically verified and ready; provider-root descendant notifications are now observed. / next: 2026-09-21 13:38 — On explicit authorization, push integration through the existing GitHub workflow, compile, install, and physically verify new image/video/audio arrivals. — 2026-09-21 13:38 — VERIFIED: AutoCompressScheduler provider-root trigger changed from exact-only flag 0 to FLAG_NOTIFY_FOR_DESCENDANTS; static diff/caller/contract checks passed. CHANGED PATHS: app/src/main/java/com/caydey/ffshare/autocompress/AutoCompressScheduler.kt, docs/FFSHARE_AUTOCOMPRESS_TASK_JOURNAL.md, CHANGELOG.md. ARTIFACT: none. UNVERIFIED: compilation, APK, JobScheduler callback, WorkManager/FFmpeg, replacement, device/UI.
