@@ -26,8 +26,6 @@
 
 - 2026-09-21 00:33 — Verified GitHub APK release build-5-1 and moved FFmpegKitNext cache save immediately after AAR verification.
 
-- 2026-09-21 13:51 Kept manual selected-file compression alive when HandleMediaActivity is temporarily covered by removing the onStop FFmpeg cancellation path; explicit Cancel and finish cancellation remain. Source/static verified only; no compile, install, device UI, or runtime compression test was run.
-
 ## 2026-09-20 13:23 UTC — Reference-first automatic folder compression implementation
 - Completed the source implementation for reference-first automatic compression of new media in selected local shared-storage folders.
 - Added the local-tree-only watcher/settings/workflow path, baseline and generation-safe queueing, reused FFShare compression bridge, foreground `dataSync` WorkManager execution, per-session FFmpeg cancellation, and backup-first verified same-folder replacement with rollback and recovery state.
