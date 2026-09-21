@@ -1,7 +1,7 @@
 # Purpose: Compile FFShare debug APKs and publish every successful master build as a GitHub Release.
 # Invocation: Automatic on every push to master; manual dispatch remains available for validation only.
-# Contract: Java 21, Android API 34, Gradle wrapper, FFmpegKitNext 8.1.1 for ARM, one immutable build release per successful push, and retained native diagnostics on failure.
-# Verification: The job validates the AAR, always uploads FFmpegKitNext's build log when native compilation runs, requires at least one APK, publishes checksums, and creates the release only after every build step succeeds.
+# Contract: Java 21, Android API 34, Gradle wrapper, FFmpegKitNext 8.1.1 for ARM, immediate caching of a newly verified native AAR, one immutable build release per successful push, and retained native diagnostics on failure.
+# Verification: The job validates and caches the AAR before APK compilation, always uploads FFmpegKitNext's build log when native compilation runs, requires at least one APK, publishes checksums, and creates the release only after every build step succeeds.
 name: Build Android APK
 
 on:
@@ -51,7 +51,7 @@ jobs:
 
       - name: Restore FFmpegKitNext AAR
         id: ffmpeg-kit-cache
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: app/libs/ffmpeg-kit-next-8.1.1.aar
           key: ffmpeg-kit-next-8.1.1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('build_ffmpegkit.sh') }}
@@ -77,6 +77,13 @@ jobs:
           test -s app/libs/ffmpeg-kit-next-8.1.1.aar
           unzip -tqq app/libs/ffmpeg-kit-next-8.1.1.aar
           sha256sum app/libs/ffmpeg-kit-next-8.1.1.aar
+
+      - name: Save verified FFmpegKitNext AAR
+        if: steps.ffmpeg-kit-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: app/libs/ffmpeg-kit-next-8.1.1.aar
+          key: ${{ steps.ffmpeg-kit-cache.outputs.cache-primary-key }}
 
       - name: Compile debug APKs
         run: ./gradlew --no-daemon --stacktrace assembleDebug

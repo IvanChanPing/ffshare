@@ -1,7 +1,7 @@
-## CURRENT STATE / NEXT STEP   (updated 2026-09-20 23:50)
+## CURRENT STATE / NEXT STEP   (updated 2026-09-21 00:33)
 
 <!--HK:NOW-->
-> **NOW (2026-09-20 23:50):** Push-triggered run `35544053134` reached Kotlin compilation and failed on source API contracts: `PreferencesFragment.kt` referenced the automatic-compression Activity through an unresolved relative package path, and `MediaCompressor.kt` used FFmpegKit/session fields plus coroutine continuation helpers that are not public in the compiled dependency set. The current diff fixes those contracts by importing `AutoCompressSettingsActivity`, using FFmpegKit public getter APIs, and resuming the automatic-compression continuation through the public coroutine API. Static verification is complete locally; GitHub APK compilation and Release publication remain pending.  ·  **NEXT:** Finalize the four validated source/bookkeeping paths, push local `master` through the required proxy, then monitor the exact resulting GitHub run through APK, artifact, and Release verification.
+> **NOW (2026-09-21 00:33):** GitHub run `35545890479` completed successfully at exact SHA `e77fe46fe57af9d4a8de3556f90b1ca794ba8cec`, built the debug APKs, and published Release `build-5-1`. The ARM64 APK download SHA-256 matched `ee94086c68be46872ee3adaa74b03e65c91249b78a20b9281c36d81fea97b164`; `BUILD-INFO.txt` records commit `e77fe46fe57af9d4a8de3556f90b1ca794ba8cec` and `generated_utc=2026-09-21 00:30 UTC`. Local workflow cache correction is already made and statically verified, but remains unpushed and unrun.  ·  **NEXT:** Push the cache-only workflow correction only on explicit authorization; do not start another GitHub run from this bookkeeping pass.
 <!--/HK:NOW-->
 - GOAL: Make every successful push to FFShare `master` compile an APK and publish it with checksums and build metadata on the fork's GitHub Releases page.
 - DONE (verified): User requested a clean reference-first implementation instead of more patching of the earlier design.
@@ -21,9 +21,25 @@
 - DONE (verified): `MediaCompressor.kt` now uses FFmpegKit public getter APIs for session ID, return code, and output, and uses the public coroutine `resume` API for the automatic-compression continuation.
 - DONE (verified): Three-stage official/source contract research was completed for the Kotlin package import and FFmpegKit/coroutine API corrections before these fixes were applied.
 - DONE (verified): Static verification passed for the current scoped diff: `git diff --check` and exact source readback of the corrected Activity import/use, FFmpegKit getter calls, and coroutine resume call.
-- NOT RUN / UNVERIFIED: The corrected GitHub APK compile and GitHub Release have not run yet. Automatic-compression device/UI/runtime behavior remains unverified.
-- NEXT STEP: Validate and finalize the four-file Kotlin compile correction, integrate it into local `master`, push `master` through the required residential proxy, then monitor the exact push-triggered run to terminal success and verify the Release target and all assets.
+- DONE (verified): GitHub run `35545890479` completed successfully at exact SHA `e77fe46fe57af9d4a8de3556f90b1ca794ba8cec`; native FFmpegKitNext AAR build ran 2026-09-20 23:52:28 UTC to 2026-09-21 00:29:54 UTC, APK compilation ran 2026-09-21 00:29:56 UTC to 00:30:43 UTC, and Release publication succeeded 2026-09-21 00:30:51 UTC.
+- DONE (verified): Release `build-5-1` published assets `app-arm64-v8a-debug.apk`, `app-armeabi-v7a-debug.apk`, `app-universal-debug.apk`, `SHA256SUMS`, and `BUILD-INFO.txt`; downloaded ARM64 APK SHA-256 matched `ee94086c68be46872ee3adaa74b03e65c91249b78a20b9281c36d81fea97b164`.
+- DONE (verified): The GitHub cache now exists as `ffmpeg-kit-next-8.1.1-Linux-X64-5823c7e91535fba7b9919423b8c44ab73c494eeb817f2057fd5e645b22e3e85d`, 33.64 MiB, created 2026-09-21 00:30:54 UTC.
+- DONE (verified): The cache miss root cause was combined `actions/cache@v5` saving only post-job; the previous downstream compile failure skipped post-save and forced the ~37.5-minute native rebuild.
+- DONE (verified): Local workflow correction is source-only and unpushed: split `actions/cache/restore@v5`, AAR verification, `actions/cache/save@v5` on miss using `cache-primary-key`, then APK compilation. YAML parse, ordering/path/key/condition assertions, `git diff --check`, and exact diff review passed.
+- NOT RUN / UNVERIFIED: The local split restore/save workflow correction has not been pushed or run. No device/UI/runtime automatic-compression verification occurred.
+- NEXT STEP: Push the cache-only workflow correction only on explicit authorization; do not compile, dispatch, push, merge, or create another GitHub run during this bookkeeping pass.
 - KEY PATHS: `app/src/main/java/com/caydey/ffshare/autocompress/`, `app/src/main/java/com/caydey/ffshare/utils/MediaCompressor.kt`, `app/src/main/res/values/strings.xml`, `app/build.gradle`, `build_ffmpegkit.sh`, `.github/workflows/android-build.yml`, `docs/FFSHARE_AUTOCOMPRESS_INTEGRATION.md`, `docs/FFSHARE_AUTOCOMPRESS_TASK_JOURNAL.md`, `CHANGELOG.md`.
+
+### 2026-09-21 00:33 — GitHub APK build and Release succeeded; native cache lifecycle corrected
+- VERIFIED / REMOTE SUCCESS: GitHub run `35545890479` completed successfully at exact SHA `e77fe46fe57af9d4a8de3556f90b1ca794ba8cec`; run URL: `https://github.com/IvanChanPing/ffshare/actions/runs/35545890479`.
+- VERIFIED / TIMINGS: Native FFmpegKitNext AAR build ran 2026-09-20 23:52:28 UTC to 2026-09-21 00:29:54 UTC. Actual APK compile ran 2026-09-21 00:29:56 UTC to 00:30:43 UTC, 47 seconds. Release publication succeeded 2026-09-21 00:30:51 UTC.
+- VERIFIED / RELEASE: Release URL `https://github.com/IvanChanPing/ffshare/releases/tag/build-5-1` published assets `app-arm64-v8a-debug.apk`, `app-armeabi-v7a-debug.apk`, `app-universal-debug.apk`, `SHA256SUMS`, and `BUILD-INFO.txt`.
+- VERIFIED / ARTIFACTS: Downloaded ARM64 APK SHA-256 matched `ee94086c68be46872ee3adaa74b03e65c91249b78a20b9281c36d81fea97b164`. `BUILD-INFO.txt` records commit `e77fe46fe57af9d4a8de3556f90b1ca794ba8cec` and `generated_utc=2026-09-21 00:30 UTC`.
+- VERIFIED / CACHE: Cache `ffmpeg-kit-next-8.1.1-Linux-X64-5823c7e91535fba7b9919423b8c44ab73c494eeb817f2057fd5e645b22e3e85d` exists, is 33.64 MiB, and was created 2026-09-21 00:30:54 UTC.
+- VERIFIED / ROOT CAUSE: Combined `actions/cache@v5` saves post-job; the previous downstream compile failure skipped the post save, forcing this ~37.5-minute native rebuild.
+- VERIFIED / LOCAL CORRECTION: Official actions/cache docs confirm split restore/save, `cache-primary-key` reuse, and immediate intermediate-artifact save. The local workflow correction splits restore and save around AAR verification: `actions/cache/restore@v5`; AAR verification; `actions/cache/save@v5` on miss using `cache-primary-key`; then APK compile. YAML parse, ordering/path/key/condition assertions, `git diff --check`, and exact diff review passed.
+- BOUNDARY: The cache correction is local only, unpushed, and unrun. No new workflow run was started. No device/UI/runtime automatic-compression verification occurred.
+- NEXT STEP: Push the cache-only workflow correction only on explicit authorization.
 
 ### 2026-09-20 23:50 — Kotlin compilation blocker identified and corrected
 - VERIFIED / RUN: GitHub run `35544053134` reached Kotlin compilation and failed before APK artifact or Release publication.
